@@ -2313,7 +2313,7 @@ class MusicBot(discord.Client):
         await self.safe_send_message(channel, "Lyrics for " + player.current_entry.title)
 
         for item in songsResults:
-             name = item
+            name = item
             pos= None
             if '(' in name and not '[' in name: #optional it allows to remove the (hd) or (feat) from the title
                 pos = name.index('(') 
