@@ -2284,7 +2284,7 @@ class MusicBot(discord.Client):
         songs = tree.xpath('//li[@class="result"]/article/h1/a/text()')
         return songs
 
-   async def cmd_lyrics(self, channel, player, song_url=None):
+    async def cmd_lyrics(self, channel, player, song_url=None):
         """
         Usage:
             {command_prefix}lyrics 
