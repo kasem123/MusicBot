@@ -42,6 +42,12 @@ from .json import Json
 from .constants import VERSION as BOTVERSION
 from .constants import DISCORD_MSG_CHAR_LIMIT, AUDIO_CACHE_PATH
 
+#Lyrics
+import urllib.parse
+import lyricwikia
+import requests
+from lxml import html
+
 
 load_opus_lib()
 
@@ -1084,8 +1090,8 @@ class MusicBot(discord.Client):
         """Provides a basic template for embeds"""
         e = discord.Embed()
         e.colour = 7506394
-        e.set_footer(text='Just-Some-Bots/MusicBot ({})'.format(BOTVERSION), icon_url='https://i.imgur.com/gFHBoZA.png')
-        e.set_author(name=self.user.name, url='https://github.com/Just-Some-Bots/MusicBot', icon_url=self.user.avatar_url)
+        e.set_footer(text='Inf8 MusicBot ({})'.format(BOTVERSION), icon_url='https://icon2.kisspng.com/20180624/ece/kisspng-discord-computer-icons-logo-user-internet-bot-discord-icon-5b30589702b188.065493111529895063011.jpg')
+        e.set_author(name=self.user.name, url='https://kasem.at', icon_url=self.user.avatar_url)
         return e
 
     async def cmd_resetplaylist(self, player, channel):
@@ -2267,6 +2273,102 @@ class MusicBot(discord.Client):
             if channel.permissions_for(guild.me).manage_messages:
                 deleted = await channel.purge(check=check, limit=search_range, before=message)
                 return Response(self.str.get('cmd-clean-reply', 'Cleaned up {0} message{1}.').format(len(deleted), 's' * bool(deleted)), delete_after=15)
+
+
+    def searchSong(self, song_name):
+        print("[Lyrics] Song name: " + song_name)
+        encondedsongname = urllib.parse.quote_plus(song_name)
+        print("[Lyrics] Search url: " + encondedsongname)
+        page = requests.get('http://lyrics.wikia.com/wiki/Special:Search?query=' + encondedsongname)
+        tree = html.fromstring(page.content)
+        songs = tree.xpath('//li[@class="result"]/article/h1/a/text()')
+        return songs
+
+   async def cmd_lyrics(self, channel, player, song_url=None):
+        """
+        Usage:
+            {command_prefix}lyrics 
+            {command_prefix}lyrics song_url
+        Displays the lyrics of the current song, otherwise you have to specify an URL
+        """ 
+
+        if song_url:                
+            try:
+                info = await self.downloader.extract_info(player.playlist.loop, song_url, download=False, process=False)
+                title = info.get('title', '')
+            except:
+                return Response("Cannot find the title, please ensure you URL is correct")
+        elif not player.current_entry:
+            return Response("No song currently being played, please specify an URL")        
+        else:
+            title = player.current_entry.title
+
+
+    async def cmd_lyric(self, channel, player):
+        if not player.current_entry:
+            return Response("No song currently being played")
+
+        await self.send_typing(channel)
+        songsResults = self.searchSong(title)
+        await self.safe_send_message(channel, "Lyrics for " + player.current_entry.title)
+
+        for item in songsResults:
+             name = item
+            pos= None
+            if '(' in name and not '[' in name: #optional it allows to remove the (hd) or (feat) from the title
+                pos = name.index('(') 
+            elif '[' in name and not '(' in name:
+                pos = tiem.index('[')
+            elif '(' in name and '[' in name:
+                pos = min(name.index('['), name.index('('))
+            if pos:
+                item = item[0:pos]
+            try:
+                nameofthesong = item.split(':')[1] 
+                nameofthesong = nameofthesong.split('/')[0]
+            except:
+                pass
+            try:    
+                nameofthesong = nameofthesong.split('`\\')[0]
+            except:
+                pass
+            try:    #too much try/except to remove that /ru from lyricswikia
+                if nameofthesong not in title:
+                    print("%s was not the song you were looking for don't you ?" % nameofthesong)
+                    continue
+            except:
+                pass
+            try:
+                lyrics = lyricwikia.get_lyrics(item.split(':')[0], item.split(':')[1])
+                await self.safe_send_message(channel, "Lyrics for " + item.split(':')[0] + " - " + item.split(':')[1])
+                n = 1985
+                for i in range(0, len(lyrics), n):
+                    await self.safe_send_message(channel, "```" + lyrics[i:i+n] + "```")
+                return
+            
+            except:     #if it fails let's remove some part of the artist name
+                print("[Lyrics] Failed to get lyric from " + item)
+                try:
+                    count = 0 #don't mind me
+                    artist = item.split(':')[0]
+                    for element in artist.split(' '):
+                        count += 1                      
+                        artist = artist.split(' ')[0:-count]
+                        artist = ' '.join(artist)
+                        try:    
+                            lyrics = lyricwikia.get_lyrics(artist, item.split(':')[1])    
+                            await self.safe_send_message(channel, "Lyric for " + artist + " - " + item.split(':')[1])
+                            n = 1985
+                            for i in range(0, len(lyrics), n):
+                                await self.safe_send_message(channel, "```" + lyrics[i:i+n] + "```") #feel redundant
+                            return
+                        except:
+                            pass
+                except:
+                    continue 
+
+        return Response("Could not find the lyrics")
+
 
     async def cmd_pldump(self, channel, author, song_url):
         """
