@@ -43,9 +43,9 @@ from .constants import VERSION as BOTVERSION
 from .constants import DISCORD_MSG_CHAR_LIMIT, AUDIO_CACHE_PATH
 
 #Lyrics
+import urllib.request
 import urllib.parse
 import lyricwikia
-import requests
 from lxml import html
 
 
@@ -2279,7 +2279,7 @@ class MusicBot(discord.Client):
         print("[Lyrics] Song name: " + song_name)
         encondedsongname = urllib.parse.quote_plus(song_name)
         print("[Lyrics] Search url: " + encondedsongname)
-        page = requests.get('http://lyrics.wikia.com/wiki/Special:Search?query=' + encondedsongname)
+        page = urllib.request.urlopen('http://lyrics.wikia.com/wiki/Special:Search?query=' + encondedsongname).read()
         tree = html.fromstring(page.content)
         songs = tree.xpath('//li[@class="result"]/article/h1/a/text()')
         return songs
